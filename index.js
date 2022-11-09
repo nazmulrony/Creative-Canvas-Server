@@ -27,6 +27,7 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
 async function run() {
     try {
         const serviceCollection = client.db('CreativeCanvasDB').collection('services')
+        const reviewCollection = client.db('CreativeCanvasDB').collection('reviews')
         //post api for services
         app.post('/services', async (req, res) => {
             const service = req.body;
@@ -38,14 +39,17 @@ async function run() {
         //get api for services
         app.get('/services', async (req, res) => {
             let size = Infinity;
+            let sortOrder = { $natural: 1 }
             const query = {}
-            if (req.query) {
+            if (req.query.limit) {
                 size = +req.query.limit;
+                // sortOrder = { $natural: -1 }
+                sortOrder.$natural = -1;
             }
             const cursor = serviceCollection.find(query);
             if (req.query?.limit) {
             }
-            const services = await cursor.limit(size).toArray();
+            const services = await cursor.sort(sortOrder).limit(size).toArray();
             res.send(services);
         })
 
@@ -56,6 +60,15 @@ async function run() {
             const query = { _id: ObjectId(id) }
             const service = await serviceCollection.findOne(query);
             res.send(service);
+        })
+
+        //post review api
+        app.post('/reviews', async (req, res) => {
+            const review = req.body
+            review.created = new Date().toLocaleString();
+            const result = await reviewCollection.insertOne(review);
+            res.send(result)
+
         })
 
     }
