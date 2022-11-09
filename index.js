@@ -14,14 +14,8 @@ app.get('/', (req, res) => {
     res.send('Welcome to Creative Canvas express server');
 })
 
-
-
-
-
-
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.cwjhhvi.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
-
 
 //database CRUD functions
 async function run() {
@@ -52,7 +46,6 @@ async function run() {
             const services = await cursor.sort(sortOrder).limit(size).toArray();
             res.send(services);
         })
-
 
         //get a specific service from the DB
         app.get('/services/:id', async (req, res) => {
@@ -87,11 +80,34 @@ async function run() {
             const reviews = await cursor.sort(sortOrder).toArray();
             res.send(reviews);
         })
+
         //delete a review
         app.delete('/reviews/:id', async (req, res) => {
             const id = req.params.id;
             const query = { _id: ObjectId(id) };
             const result = await reviewCollection.deleteOne(query);
+            res.send(result);
+        })
+
+        //get a specific review from the DB
+        app.get('/reviews/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: ObjectId(id) }
+            const review = await reviewCollection.findOne(query);
+            res.send(review);
+        })
+        //update a review
+        app.patch('/reviews/:id', async (req, res) => {
+            const id = req.params.id;
+            const updated = req.body;
+            const filter = { _id: ObjectId(id) }
+            const doc = {
+                $set: {
+                    rating: updated.rating,
+                    text: updated.text
+                }
+            }
+            const result = await reviewCollection.updateOne(filter, doc);
             res.send(result);
         })
     }
