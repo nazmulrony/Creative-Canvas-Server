@@ -27,7 +27,15 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
 async function run() {
     try {
         const serviceCollection = client.db('CreativeCanvasDB').collection('services')
+        //post api for services
+        app.post('/services', async (req, res) => {
+            const service = req.body;
+            // console.log(service);
+            const result = await serviceCollection.insertOne(service)
+            res.send(result);
+        })
 
+        //get api for services
         app.get('/services', async (req, res) => {
             let size = Infinity;
             const query = {}
@@ -36,11 +44,11 @@ async function run() {
             }
             const cursor = serviceCollection.find(query);
             if (req.query?.limit) {
-
             }
             const services = await cursor.limit(size).toArray();
             res.send(services);
         })
+
 
         //get a specific service from the DB
         app.get('/services/:id', async (req, res) => {
