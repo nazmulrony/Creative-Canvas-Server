@@ -68,7 +68,25 @@ async function run() {
             review.created = new Date().toLocaleString();
             const result = await reviewCollection.insertOne(review);
             res.send(result)
+        })
 
+
+        //get api for reviews
+        app.get('/reviews', async (req, res) => {
+            let sortOrder = { $natural: 1 }
+            let query = {}
+            if (req.query.service) {
+                query = { serviceId: req.query.service }
+                sortOrder.$natural = -1;
+            }
+            //query by email
+            if (req.query.email) {
+                query = { email: req.query.email }
+            }
+
+            const cursor = reviewCollection.find(query);
+            const reviews = await cursor.sort(sortOrder).toArray();
+            res.send(reviews);
         })
 
     }
