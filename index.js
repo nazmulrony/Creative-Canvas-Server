@@ -15,6 +15,10 @@ app.get('/', (req, res) => {
     res.send('Welcome to Creative Canvas express server');
 })
 
+
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.cwjhhvi.mongodb.net/?retryWrites=true&w=majority`;
+const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
+
 //token verification 
 function verifyJWT(req, res, next) {
     const authHeader = req.headers.authorization;
@@ -31,9 +35,6 @@ function verifyJWT(req, res, next) {
     })
 }
 
-const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.cwjhhvi.mongodb.net/?retryWrites=true&w=majority`;
-const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
-
 //database CRUD functions
 async function run() {
     try {
@@ -43,11 +44,9 @@ async function run() {
         //token for user
         app.post('/jwt', (req, res) => {
             const user = req.body;
-            console.log(user);
             const secret = process.env.ACCESS_TOKEN_SECRET
             const token = jwt.sign(user, secret, { expiresIn: '10hr' })
             res.send({ token })
-
         })
 
         //post api for services
@@ -90,12 +89,8 @@ async function run() {
             const result = await reviewCollection.insertOne(review);
             res.send(result)
         })
-
-
-        //get api for reviews
-        app.get('/reviews', verifyJWT, async (req, res) => {
-            const decoded = req.decoded;
-            console.log(decoded);
+        //get api for reviews at services
+        app.get('/reviews', async (req, res) => {
             let sortOrder = { created: 1 }
             let query = {}
             //query by serviceId
@@ -103,17 +98,27 @@ async function run() {
                 query = { serviceId: req.query.service }
                 sortOrder = { created: -1 };
             }
-            //query by email
-            if (req.query.email) {
-                if (decoded.email !== req.query.email) {
-                    return res.status(401).send({ message: 'Unauthorized access' });
-                }
-                query = { email: req.query.email }
-            }
             const cursor = reviewCollection.find(query);
             const reviews = await cursor.sort(sortOrder).toArray();
             res.send(reviews);
         })
+        //get api for reviews at my reviews
+        app.get('/userReviews', verifyJWT, async (req, res) => {
+            const decoded = req.decoded;
+            console.log(decoded);
+            let query = {}
+            //query by email
+            if (req.query.email) {
+                if (decoded.email !== req.query.email) {
+                    res.status(401).send({ message: 'Unauthorized access' });
+                }
+                query = { email: req.query.email }
+            }
+            const cursor = reviewCollection.find(query);
+            const reviews = await cursor.toArray();
+            res.send(reviews);
+        })
+
 
         //delete a review
         app.delete('/reviews/:id', async (req, res) => {
@@ -150,10 +155,6 @@ async function run() {
     }
 }
 run().catch(err => console.log(err));
-
-
-
-
 
 
 app.listen(port, () => {
