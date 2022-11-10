@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express();
 const port = process.env.PORT || 5000;
@@ -14,6 +15,22 @@ app.get('/', (req, res) => {
     res.send('Welcome to Creative Canvas express server');
 })
 
+//token verification 
+function verifyJWT(req, res, next) {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+        return res.status(401).send({ message: 'Unauthorized access' });
+    }
+    const token = authHeader.split(' ')[1];
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, function (err, decoded) {
+        if (err) {
+            return res.status(403).send({ message: 'Forbidden access' });
+        }
+        req.decoded = decoded;
+        next();
+    })
+}
+
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.cwjhhvi.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
 
@@ -22,6 +39,17 @@ async function run() {
     try {
         const serviceCollection = client.db('CreativeCanvasDB').collection('services')
         const reviewCollection = client.db('CreativeCanvasDB').collection('reviews')
+
+        //token for user
+        app.post('/jwt', (req, res) => {
+            const user = req.body;
+            console.log(user);
+            const secret = process.env.ACCESS_TOKEN_SECRET
+            const token = jwt.sign(user, secret, { expiresIn: '10hr' })
+            res.send({ token })
+
+        })
+
         //post api for services
         app.post('/services', async (req, res) => {
             const service = req.body;
@@ -65,15 +93,21 @@ async function run() {
 
 
         //get api for reviews
-        app.get('/reviews', async (req, res) => {
-            let sortOrder = { $natural: 1 }
+        app.get('/reviews', verifyJWT, async (req, res) => {
+            const decoded = req.decoded;
+            console.log(decoded);
+            let sortOrder = { created: 1 }
             let query = {}
+            //query by serviceId
             if (req.query.service) {
                 query = { serviceId: req.query.service }
-                sortOrder.$natural = -1;
+                sortOrder = { created: -1 };
             }
             //query by email
             if (req.query.email) {
+                if (decoded.email !== req.query.email) {
+                    return res.status(401).send({ message: 'Unauthorized access' });
+                }
                 query = { email: req.query.email }
             }
             const cursor = reviewCollection.find(query);
